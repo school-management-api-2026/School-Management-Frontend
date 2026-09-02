@@ -9,75 +9,84 @@ import {
 export const navGroups = [
   {
     label: 'Main',
+    allowedRoles: [1, 2, 3, 4],
     items: [
-      { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+      { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     ],
   },
   {
     label: 'User Management',
+    allowedRoles: [1],
     items: [
-      { name: 'Users', path: '/users', icon: Users },
-      { name: 'Roles', path: '/roles', icon: Shield },
+      { name: 'Users', path: '/admin/users', icon: Users },
+      { name: 'Roles', path: '/admin/roles', icon: Shield },
     ],
   },
   {
     label: 'People',
+    allowedRoles: [1, 2],
     items: [
-      { name: 'Students', path: '/students', icon: GraduationCap },
-      { name: 'Parents', path: '/parents', icon: UserCheck },
-      { name: 'Teachers', path: '/teachers', icon: BookUser },
-      { name: 'Payrolls', path: '/payrolls', icon: Wallet },
+      { name: 'Students', path: '/admin/students', icon: GraduationCap },
+      { name: 'Parents', path: '/admin/parents', icon: UserCheck },
+      { name: 'Teachers', path: '/admin/teachers', icon: BookUser },
+      { name: 'Payrolls', path: '/admin/payrolls', icon: Wallet },
     ],
   },
   {
     label: 'Academics',
+    allowedRoles: [1, 2, 4],
     items: [
-      { name: 'Subjects', path: '/subjects', icon: BookOpen },
-      { name: 'Courses', path: '/courses', icon: LibraryBig },
-      { name: 'Enrollments', path: '/enrollments', icon: ClipboardList },
-      { name: 'Schedules', path: '/schedules', icon: CalendarDays },
-      { name: 'Exams', path: '/exams', icon: FileText },
-      { name: 'Results', path: '/results', icon: Award },
+      { name: 'Subjects', path: '/admin/subjects', icon: BookOpen },
+      { name: 'Courses', path: '/admin/courses', icon: LibraryBig },
+      { name: 'Enrollments', path: '/admin/enrollments', icon: ClipboardList },
+      { name: 'Schedules', path: '/admin/schedules', icon: CalendarDays },
+      { name: 'Exams', path: '/admin/exams', icon: FileText },
+      { name: 'Results', path: '/admin/results', icon: Award },
     ],
   },
   {
     label: 'Campus',
+    allowedRoles: [1],
     items: [
-      { name: 'Buildings', path: '/buildings', icon: Building2 },
-      { name: 'Floors', path: '/floors', icon: Layers },
-      { name: 'Rooms', path: '/rooms', icon: DoorOpen },
+      { name: 'Buildings', path: '/admin/buildings', icon: Building2 },
+      { name: 'Floors', path: '/admin/floors', icon: Layers },
+      { name: 'Rooms', path: '/admin/rooms', icon: DoorOpen },
     ],
   },
   {
     label: 'Finance',
+    allowedRoles: [1, 4],
     items: [
-      { name: 'Invoices', path: '/invoices', icon: Receipt },
-      { name: 'Payments', path: '/payments', icon: CreditCard },
+      { name: 'Invoices', path: '/admin/invoices', icon: Receipt },
+      { name: 'Payments', path: '/admin/payments', icon: CreditCard },
     ],
   },
   {
     label: 'Library',
+    allowedRoles: [1, 3, 4],
     items: [
-      { name: 'Authors', path: '/authors', icon: PenTool },
-      { name: 'Books', path: '/books', icon: Library },
-      { name: 'Book Copies', path: '/book-copies', icon: BookCopy },
-      { name: 'Book Loans', path: '/book-loans', icon: BookMarked },
-      { name: 'Fines', path: '/fines', icon: HandCoins },
+      { name: 'Authors', path: '/admin/authors', icon: PenTool },
+      { name: 'Books', path: '/admin/books', icon: Library },
+      { name: 'Book Copies', path: '/admin/book-copies', icon: BookCopy },
+      { name: 'Book Loans', path: '/admin/book-loans', icon: BookMarked },
+      { name: 'Fines', path: '/admin/fines', icon: HandCoins },
     ],
   },
   {
     label: 'Tracking',
+    allowedRoles: [1, 2],
     items: [
-      { name: 'Attendance', path: '/attendance', icon: UserRoundCheck },
+      { name: 'Attendance', path: '/admin/attendance', icon: UserRoundCheck },
     ],
   },
   {
     label: 'System',
+    allowedRoles: [1],
     items: [
-      { name: 'Reports', path: '/reports', icon: BarChart3 },
-      { name: 'Settings', path: '/settings', icon: Settings },
+      { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
+      { name: 'Settings', path: '/admin/settings', icon: Settings },
     ],
   },
 ]
 
-export const logoutItem = { name: 'Logout', path: '/logout', icon: LogOut }
+export const logoutItem = { name: 'Logout', path: '/admin/logout', icon: LogOut }

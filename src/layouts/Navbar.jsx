@@ -1,9 +1,11 @@
 import { Menu, Search, Bell, Sun, Moon, User, ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useSidebar } from '../context/SidebarContext'
 import { useTheme } from '../context/ThemeContext'
 
 export default function Navbar() {
+  const navigate = useNavigate()
   const { toggle } = useSidebar()
   const { dark, toggle: toggleTheme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
@@ -95,7 +97,7 @@ export default function Navbar() {
                   <button className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">Profile</button>
                   <button className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">Settings</button>
                   <hr className="border-surface-200 dark:border-surface-700" />
-                  <button className="w-full text-left px-4 py-2 text-sm text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-500/10 transition-colors">Logout</button>
+                  <button onClick={() => navigate('/login')} className="w-full text-left px-4 py-2 text-sm text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-500/10 transition-colors">Logout</button>
                 </div>
               </div>
             )}

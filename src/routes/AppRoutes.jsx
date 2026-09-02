@@ -1,8 +1,11 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import AdminLayout from '../layouts/AdminLayout'
 import Loading from '../components/common/Loading'
 
+const Home = lazy(() => import('../pages/Home'))
+const Login = lazy(() => import('../pages/Login'))
+const Register = lazy(() => import('../pages/Register'))
 const Dashboard = lazy(() => import('../pages/Dashboard'))
 const UsersPage = lazy(() => import('../pages/Users'))
 const RolesPage = lazy(() => import('../pages/Roles'))
@@ -30,11 +33,21 @@ const AttendancePage = lazy(() => import('../pages/Attendance'))
 const ReportsPage = lazy(() => import('../pages/Reports'))
 const SettingsPage = lazy(() => import('../pages/Settings'))
 
+const LogoutRoute = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  return <Navigate to="/login" replace />
+}
+
 export default function AppRoutes() {
   return (
     <Suspense fallback={<Loading fullPage />}>
       <Routes>
-        <Route element={<AdminLayout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        
+        <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="roles" element={<RolesPage />} />
@@ -61,6 +74,7 @@ export default function AppRoutes() {
           <Route path="attendance" element={<AttendancePage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="logout" element={<LogoutRoute />} />
         </Route>
       </Routes>
     </Suspense>
