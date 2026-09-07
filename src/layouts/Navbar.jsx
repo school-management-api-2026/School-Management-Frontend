@@ -1,8 +1,9 @@
-import { Menu, Search, Bell, Sun, Moon, User, ChevronDown } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { Menu, Search, Bell, Sun, Moon, User, ChevronDown, LogOut } from 'lucide-react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSidebar } from '../context/SidebarContext'
 import { useTheme } from '../context/ThemeContext'
+import axiosClient from '../api/axios'
 
 export default function Navbar() {
   const navigate = useNavigate()
@@ -11,6 +12,7 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const profileRef = useRef()
   const notifRef = useRef()
 
@@ -22,6 +24,26 @@ export default function Navbar() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  const currentUser = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      return stored ? JSON.parse(stored) : null
+    } catch { return null }
+  }, [])
+
+  const userName = currentUser?.name || 'Guest'
+  const userRole = currentUser?.role?.name || 'Unknown'
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await axiosClient.post('/logout')
+    } catch { /* ignore errors on logout */ }
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    navigate('/login')
+  }
 
   const notifications = [
     { id: 1, text: 'New student enrolled in Mathematics', time: '5 min ago' },
@@ -86,18 +108,21 @@ export default function Navbar() {
                 <User size={16} className="text-primary-600 dark:text-primary-400" />
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-surface-900 dark:text-white">Admin User</p>
-                <p className="text-xs text-surface-400">Administrator</p>
+                <p className="text-sm font-medium text-surface-900 dark:text-white">{userName}</p>
+                <p className="text-xs text-surface-400">{userRole}</p>
               </div>
               <ChevronDown size={16} className="hidden md:block text-surface-400" />
             </button>
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-lg overflow-hidden">
                 <div className="py-1">
-                  <button className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">Profile</button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">Settings</button>
+                  <button onClick={() => { setProfileOpen(false); navigate('/admin/profile') }} className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">Profile</button>
+                  <button onClick={() => { setProfileOpen(false); navigate('/admin/settings') }} className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">Settings</button>
                   <hr className="border-surface-200 dark:border-surface-700" />
-                  <button onClick={() => navigate('/login')} className="w-full text-left px-4 py-2 text-sm text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-500/10 transition-colors">Logout</button>
+                  <button onClick={handleLogout} disabled={loggingOut} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-500/10 transition-colors disabled:opacity-50">
+                    <LogOut size={14} />
+                    {loggingOut ? 'Logging out...' : 'Logout'}
+                  </button>
                 </div>
               </div>
             )}

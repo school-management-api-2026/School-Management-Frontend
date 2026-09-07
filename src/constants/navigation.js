@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Shield, GraduationCap, UserCheck, BookUser,
   Wallet, BookOpen, LibraryBig, Building2, Layers, DoorOpen, CalendarDays,
   ClipboardList, FileText, Award, Receipt, CreditCard, Library,
-  PenTool, BookCopy, BookMarked, HandCoins, UserRoundCheck,
+  PenTool, BookCopy, BookMarked, HandCoins, UserRoundCheck, ClipboardCheck,
   BarChart3, Settings, LogOut
 } from 'lucide-react'
 
@@ -76,7 +76,8 @@ export const navGroups = [
     label: 'Tracking',
     allowedRoles: [1, 2],
     items: [
-      { name: 'Attendance', path: '/admin/attendance', icon: UserRoundCheck },
+      { name: 'Attendance Records', path: '/admin/attendance', icon: UserRoundCheck },
+      { name: 'Take Attendance', path: '/admin/take-attendance', icon: ClipboardCheck },
     ],
   },
   {

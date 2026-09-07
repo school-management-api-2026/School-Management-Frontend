@@ -1,18 +1,46 @@
+import { useState, useEffect } from 'react'
 import { GraduationCap, BookUser, UserCheck, LibraryBig, ClipboardList, UserRoundCheck, DollarSign, AlertTriangle } from 'lucide-react'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { getSummary } from '../api/services/dashboardService'
+import { useToast } from '../context/ToastContext'
 import StatCard from '../components/common/StatCard'
 import ChartCard from '../components/common/ChartCard'
 import StatusBadge from '../components/common/StatusBadge'
-import { dashboardStats, enrollmentTrend, attendanceOverview, revenueOverview, libraryStats, students, enrollments, attendance, exams, payments } from '../data/mockData'
+import Loading from '../components/common/Loading'
 
 const PIE_COLORS = ['#22c55e', '#6366f1', '#ef4444']
 
 export default function Dashboard() {
-  const todayAttendance = attendance.filter(a => a.date === '2026-08-27')
-  const recentStudents = students.slice(0, 5)
-  const recentEnrollments = enrollments.slice(0, 5)
-  const upcomingExams = exams.filter(e => e.examDate >= '2026-09-01').slice(0, 5)
-  const recentPayments = payments.slice(0, 5)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const toast = useToast()
+
+  useEffect(() => {
+    getSummary()
+      .then(res => {
+        setData(res.data.data)
+      })
+      .catch(err => {
+        toast.error("Failed to load dashboard data.")
+        console.error(err)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [])
+
+  if (loading || !data) {
+    return <Loading fullPage={false} className="min-h-[60vh]" />
+  }
+
+  const { dashboardStats, tables, charts } = data
+  const { recentStudents, recentEnrollments, todayAttendance, upcomingExams, recentPayments } = tables
+  const { enrollmentTrend, attendanceOverview, revenueOverview, libraryStats } = charts
+
+  const attendanceTotal = dashboardStats.attendanceToday.present + 
+                          dashboardStats.attendanceToday.absent + 
+                          dashboardStats.attendanceToday.late + 
+                          dashboardStats.attendanceToday.excused;
 
   return (
     <div className="space-y-6">
@@ -22,14 +50,14 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Students" value={dashboardStats.totalStudents} icon={GraduationCap} color="primary" trend="up" trendValue="+12% this month" />
-        <StatCard title="Total Teachers" value={dashboardStats.totalTeachers} icon={BookUser} color="info" trend="up" trendValue="+2 this semester" />
+        <StatCard title="Total Students" value={dashboardStats.totalStudents} icon={GraduationCap} color="primary" />
+        <StatCard title="Total Teachers" value={dashboardStats.totalTeachers} icon={BookUser} color="info" />
         <StatCard title="Total Parents" value={dashboardStats.totalParents} icon={UserCheck} color="success" />
         <StatCard title="Total Courses" value={dashboardStats.totalCourses} icon={LibraryBig} color="warning" />
-        <StatCard title="Total Enrollments" value={dashboardStats.totalEnrollments} icon={ClipboardList} color="primary" trend="up" trendValue="+8% this month" />
-        <StatCard title="Attendance Today" value={`${dashboardStats.attendanceToday.present}/${dashboardStats.attendanceToday.present + dashboardStats.attendanceToday.absent + dashboardStats.attendanceToday.late + dashboardStats.attendanceToday.excused}`} icon={UserRoundCheck} color="success" />
-        <StatCard title="Total Revenue" value={`$${dashboardStats.totalRevenue.toLocaleString()}`} icon={DollarSign} color="success" trend="up" trendValue="+15% this month" />
-        <StatCard title="Outstanding" value={`$${dashboardStats.outstandingPayments.toLocaleString()}`} icon={AlertTriangle} color="danger" trend="down" trendValue="3 unpaid invoices" />
+        <StatCard title="Total Enrollments" value={dashboardStats.totalEnrollments} icon={ClipboardList} color="primary" />
+        <StatCard title="Attendance Today" value={`${dashboardStats.attendanceToday.present}/${attendanceTotal}`} icon={UserRoundCheck} color="success" />
+        <StatCard title="Total Revenue" value={`$${dashboardStats.totalRevenue.toLocaleString()}`} icon={DollarSign} color="success" />
+        <StatCard title="Outstanding" value={`$${dashboardStats.outstandingPayments.toLocaleString()}`} icon={AlertTriangle} color="danger" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -102,11 +130,12 @@ export default function Dashboard() {
             <h3 className="text-sm font-semibold text-surface-900 dark:text-white">Recent Students</h3>
           </div>
           <div className="divide-y divide-surface-100 dark:divide-surface-700">
+            {recentStudents.length === 0 && <p className="px-5 py-8 text-sm text-surface-400 text-center">No recent students</p>}
             {recentStudents.map(s => (
               <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-500/20 flex items-center justify-center text-xs font-semibold text-primary-700 dark:text-primary-400">
-                    {s.name.split(' ').map(n => n[0]).join('')}
+                    {(s.name || 'U').split(' ').map(n => n[0]).join('')}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-surface-900 dark:text-white">{s.name}</p>
@@ -124,6 +153,7 @@ export default function Dashboard() {
             <h3 className="text-sm font-semibold text-surface-900 dark:text-white">Recent Enrollments</h3>
           </div>
           <div className="divide-y divide-surface-100 dark:divide-surface-700">
+            {recentEnrollments.length === 0 && <p className="px-5 py-8 text-sm text-surface-400 text-center">No recent enrollments</p>}
             {recentEnrollments.map(e => (
               <div key={e.id} className="px-5 py-3 flex items-center justify-between hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
                 <div>
@@ -144,6 +174,7 @@ export default function Dashboard() {
             <h3 className="text-sm font-semibold text-surface-900 dark:text-white">Today&apos;s Attendance</h3>
           </div>
           <div className="divide-y divide-surface-100 dark:divide-surface-700">
+            {todayAttendance.length === 0 && <p className="px-5 py-8 text-sm text-surface-400 text-center">No attendance logged today</p>}
             {todayAttendance.map(a => (
               <div key={a.id} className="px-5 py-3 flex items-center justify-between hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
                 <div>
@@ -195,6 +226,11 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-100 dark:divide-surface-700">
+              {recentPayments.length === 0 && (
+                  <tr>
+                      <td colSpan="5" className="px-5 py-8 text-center text-surface-400">No recent payments</td>
+                  </tr>
+              )}
               {recentPayments.map(p => (
                 <tr key={p.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
                   <td className="px-5 py-3 text-surface-900 dark:text-white font-medium">{p.invoiceRef}</td>

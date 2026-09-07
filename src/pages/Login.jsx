@@ -25,10 +25,15 @@ export default function Login() {
                 localStorage.setItem('token', response.data.access_token)
                 localStorage.setItem('user', JSON.stringify(response.data.user))
                 success('Logged in successfully!')
-                navigate('/admin')
+                
+                const roleId = response.data.user.role_id;
+                if (roleId === 1) navigate('/admin');
+                else if (roleId === 2) navigate('/teacher');
+                else if (roleId === 4) navigate('/student');
+                else navigate('/'); 
+                
             } else {
-                // Fallback for demonstration if API isn't fully ready
-                navigate('/admin')
+                error('Login failed. No token received.')
             }
         } catch (err) {
             console.error('Login error:', err)
@@ -153,7 +158,7 @@ export default function Login() {
                             </div>
                         </div>
                         <div className="mt-6 text-center text-sm text-surface-600 dark:text-surface-400 font-mono bg-surface-100 dark:bg-surface-800 p-3 rounded-lg border border-surface-200 dark:border-surface-700">
-                            Just click "Sign in" to access dashboard
+                            Use your registered email/username and password
                         </div>
                     </div>
                 </div>

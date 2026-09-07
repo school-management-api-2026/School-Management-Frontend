@@ -3,7 +3,7 @@ import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import Toast from '../components/common/Toast'
 
-export default function AdminLayout() {
+export default function DashboardLayout() {
   return (
     <div className="flex h-screen bg-surface-50 dark:bg-surface-950">
       <Sidebar />

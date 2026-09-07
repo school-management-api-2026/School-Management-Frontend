@@ -61,10 +61,21 @@ export default function Sidebar() {
   try { user = userStr ? JSON.parse(userStr) : null } catch { /* ignore parse error */ }
   const userRoleId = user?.role_id ? parseInt(user.role_id, 10) : 4 // Default to student
   
-  const filteredNavGroups = navGroups.filter(group => {
-    if (!group.allowedRoles) return true
-    return group.allowedRoles.includes(userRoleId)
-  })
+  let basePath = '/admin';
+  if (userRoleId === 2) basePath = '/teacher';
+  if (userRoleId === 4) basePath = '/student';
+
+  const processedNavGroups = navGroups
+    .filter(group => !group.allowedRoles || group.allowedRoles.includes(userRoleId))
+    .map(group => ({
+      ...group,
+      items: group.items.map(item => ({
+        ...item,
+        path: item.path.replace(/^\/admin/, basePath)
+      }))
+    }));
+    
+  const processedLogoutItem = { ...logoutItem, path: logoutItem.path.replace(/^\/admin/, basePath) };
 
   const sidebarContent = (
     <div className={`flex flex-col h-full bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-700 ${open ? 'w-64' : 'w-[68px]'} transition-all duration-300`}>
@@ -86,11 +97,11 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
-        {filteredNavGroups.map(group => <NavGroup key={group.label} group={group} collapsed={!open} />)}
+        {processedNavGroups.map(group => <NavGroup key={group.label} group={group} collapsed={!open} />)}
       </nav>
 
       <div className="p-2 border-t border-surface-200 dark:border-surface-700">
-        <NavItem item={logoutItem} collapsed={!open} />
+        <NavItem item={processedLogoutItem} collapsed={!open} />
       </div>
     </div>
   )

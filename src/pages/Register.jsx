@@ -28,7 +28,7 @@ export default function Register() {
       
       if (response.data?.access_token) {
         localStorage.setItem('token', response.data.access_token)
-        localStorage.setItem('user', JSON.stringify(response.data.data))
+        localStorage.setItem('user', JSON.stringify(response.data.user || response.data.data || {}))
         success('Account created successfully!')
         navigate('/admin')
       } else {

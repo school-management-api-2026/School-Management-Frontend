@@ -1,68 +1,187 @@
+import { useState, useEffect } from 'react'
 import { useToast } from '../context/ToastContext'
-import { useCrudState } from '../hooks/useCrudState'
-import { rooms as mockRooms, floors } from '../data/mockData'
+import { useApiCrud } from '../hooks/useApiCrud'
+import * as roomService from '../api/services/roomService'
+import * as buildingService from '../api/services/buildingService'
+import * as floorService from '../api/services/floorService'
 import PageHeader from '../components/common/PageHeader'
 import SearchBar from '../components/common/SearchBar'
-import FilterDropdown from '../components/common/FilterDropdown'
 import DataTable from '../components/common/DataTable'
 import Pagination from '../components/common/Pagination'
 import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import EmptyState from '../components/common/EmptyState'
 import Button from '../components/common/Button'
-import FormField, { Input, Select } from '../components/common/FormField'
+import FormField, { Input, Select, Textarea } from '../components/common/FormField'
 
-const roomTypes = ['Classroom', 'Lab', 'Lecture Hall', 'Library', 'Studio', 'Office']
 const columns = [
-  { key: 'roomName', label: 'Room Name' },
-  { key: 'roomNumber', label: 'Number' },
-  { key: 'roomType', label: 'Type' },
+  { key: 'room_number', label: 'Room Number' },
+  { key: 'name', label: 'Name' },
+  { key: 'building.name', label: 'Building' },
+  { key: 'floor.name', label: 'Floor' },
   { key: 'capacity', label: 'Capacity' },
-  { key: 'buildingName', label: 'Building' },
-  { key: 'floorNumber', label: 'Floor' },
+  { key: 'status', label: 'Status', badge: true },
 ]
 
 export default function Rooms() {
   const toast = useToast()
-  const crud = useCrudState(mockRooms)
+  const crud = useApiCrud(roomService)
+  const [buildings, setBuildings] = useState([])
+  const [floors, setFloors] = useState([])
 
-  const save = () => {
-    if (!crud.formData.roomName || !crud.formData.floorId) { toast.error('Room name and floor are required'); return }
-    const floor = floors.find(f => f.id === Number(crud.formData.floorId))
-    crud.handleSave({ ...crud.formData, floorId: Number(crud.formData.floorId), floorNumber: floor?.floorNumber || 0, buildingName: floor?.buildingName || '', capacity: Number(crud.formData.capacity) || 0 })
-    toast.success(crud.selected ? 'Room updated' : 'Room created')
+  useEffect(() => {
+    buildingService.getAll().then(res => setBuildings(res.data?.data || []))
+    floorService.getAll().then(res => setFloors(res.data?.data || []))
+  }, [])
+
+  // Filter floors based on selected building in form
+  const availableFloors = crud.formData.building_id 
+    ? floors.filter(f => f.building_id === Number(crud.formData.building_id)) 
+    : floors
+
+  const save = async () => {
+    if (!crud.formData.building_id || !crud.formData.floor_id || !crud.formData.room_number || !crud.formData.name || !crud.formData.capacity) { 
+      toast.error('All required fields must be filled')
+      return 
+    }
+    
+    try {
+      await crud.handleSave(crud.formData)
+      toast.success(crud.selected ? 'Room updated' : 'Room created')
+    } catch {
+      toast.error(crud.error || 'Operation failed')
+    }
+  }
+
+  const del = async () => {
+    try {
+      await crud.handleDelete()
+      toast.success('Room deleted')
+    } catch {
+      toast.error(crud.error || 'Delete failed')
+    }
   }
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Rooms" description="Manage campus rooms" onAdd={() => crud.openAdd({})} addLabel="Add Room" />
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1"><SearchBar value={crud.search} onChange={crud.setSearch} placeholder="Search rooms..." /></div>
-        <FilterDropdown label="All Types" options={roomTypes.map(t => ({ value: t, label: t }))} value={crud.filter} onChange={crud.setFilter} />
+      <PageHeader 
+        title="Rooms" 
+        description="Manage campus rooms" 
+        onAdd={() => crud.openAdd({ status: 'Active', capacity: 30 })} 
+        addLabel="Add Room" 
+      />
+      
+      <div className="max-w-sm">
+        <SearchBar 
+          value={crud.search} 
+          onChange={crud.setSearch} 
+          placeholder="Search rooms..." 
+        />
       </div>
 
-      {crud.paginated.length === 0 ? <EmptyState title="No rooms found" action={() => crud.openAdd({})} actionLabel="Add Room" /> : (
+      {crud.loading && <p className="text-sm text-surface-500 dark:text-surface-400">Loading...</p>}
+      {crud.error && <p className="text-sm text-red-500">{crud.error}</p>}
+
+      {!crud.loading && crud.paginated.length === 0 ? (
+        <EmptyState title="No rooms found" action={() => crud.openAdd({ status: 'Active', capacity: 30 })} actionLabel="Add Room" />
+      ) : (
         <>
           <DataTable columns={columns} data={crud.paginated} onView={crud.openView} onEdit={crud.openEdit} onDelete={crud.openDelete} />
           <Pagination currentPage={crud.currentPage} totalPages={crud.totalPages} onPageChange={crud.setCurrentPage} />
         </>
       )}
 
-      <Modal open={crud.modalOpen} onClose={crud.closeModals} title={crud.selected ? 'Edit Room' : 'Add Room'} size="lg" footer={<><Button variant="secondary" onClick={crud.closeModals}>Cancel</Button><Button onClick={save}>{crud.selected ? 'Update' : 'Create'}</Button></>}>
+      <Modal 
+        open={crud.modalOpen} 
+        onClose={crud.closeModals} 
+        title={crud.selected ? 'Edit Room' : 'Add Room'} 
+        size="lg"
+        footer={<><Button variant="secondary" onClick={crud.closeModals}>Cancel</Button><Button onClick={save} disabled={crud.loading}>{crud.selected ? 'Update' : 'Create'}</Button></>}
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Room Name" required><Input value={crud.formData.roomName || ''} onChange={e => crud.updateForm('roomName', e.target.value)} placeholder="Room name" /></FormField>
-          <FormField label="Room Number"><Input value={crud.formData.roomNumber || ''} onChange={e => crud.updateForm('roomNumber', e.target.value)} placeholder="101" /></FormField>
-          <FormField label="Room Type"><Select value={crud.formData.roomType || ''} onChange={e => crud.updateForm('roomType', e.target.value)}><option value="">Select Type</option>{roomTypes.map(t => <option key={t} value={t}>{t}</option>)}</Select></FormField>
-          <FormField label="Capacity"><Input type="number" value={crud.formData.capacity || ''} onChange={e => crud.updateForm('capacity', e.target.value)} placeholder="30" /></FormField>
-          <FormField label="Floor" required><Select value={crud.formData.floorId || ''} onChange={e => crud.updateForm('floorId', e.target.value)}><option value="">Select Floor</option>{floors.map(f => <option key={f.id} value={f.id}>{f.buildingName} — Floor {f.floorNumber}</option>)}</Select></FormField>
+          <FormField label="Building" required>
+            <Select 
+              value={crud.formData.building_id || ''} 
+              onChange={e => {
+                crud.updateForm('building_id', e.target.value)
+                crud.updateForm('floor_id', '') // reset floor when building changes
+              }}
+            >
+              <option value="">Select Building</option>
+              {buildings.map(b => (
+                <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+              ))}
+            </Select>
+          </FormField>
+          
+          <FormField label="Floor" required>
+            <Select 
+              value={crud.formData.floor_id || ''} 
+              onChange={e => crud.updateForm('floor_id', e.target.value)}
+              disabled={!crud.formData.building_id}
+            >
+              <option value="">Select Floor</option>
+              {availableFloors.map(f => (
+                <option key={f.id} value={f.id}>{f.name} (Lvl {f.floor_number})</option>
+              ))}
+            </Select>
+          </FormField>
+
+          <FormField label="Room Name" required>
+            <Input value={crud.formData.name || ''} onChange={e => crud.updateForm('name', e.target.value)} placeholder="e.g. Science Lab 1" />
+          </FormField>
+
+          <FormField label="Room Number" required>
+            <Input value={crud.formData.room_number || ''} onChange={e => crud.updateForm('room_number', e.target.value)} placeholder="e.g. SL-101" />
+          </FormField>
+
+          <FormField label="Capacity" required>
+            <Input type="number" value={crud.formData.capacity || ''} onChange={e => crud.updateForm('capacity', e.target.value)} placeholder="30" />
+          </FormField>
+
+          <FormField label="Status">
+            <Select value={crud.formData.status || 'Active'} onChange={e => crud.updateForm('status', e.target.value)}>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Maintenance">Maintenance</option>
+            </Select>
+          </FormField>
+
+          <FormField label="Description" className="md:col-span-2">
+            <Textarea value={crud.formData.description || ''} onChange={e => crud.updateForm('description', e.target.value)} placeholder="Description" rows={2} />
+          </FormField>
         </div>
       </Modal>
 
       <Modal open={crud.viewModal} onClose={crud.closeModals} title="Room Details">
-        {crud.selected && (<div className="space-y-3">{Object.entries({ 'Room Name': crud.selected.roomName, Number: crud.selected.roomNumber, Type: crud.selected.roomType, Capacity: crud.selected.capacity, Building: crud.selected.buildingName, Floor: crud.selected.floorNumber }).map(([k, v]) => (<div key={k} className="flex justify-between py-2 border-b border-surface-100 dark:border-surface-700"><span className="text-sm text-surface-500">{k}</span><span className="text-sm font-medium text-surface-900 dark:text-white">{v ?? '—'}</span></div>))}</div>)}
+        {crud.selected && (
+          <div className="space-y-3">
+            {Object.entries({ 
+              ID: crud.selected.id,
+              'Room Number': crud.selected.room_number,
+              Name: crud.selected.name, 
+              Building: crud.selected.building?.name,
+              Floor: crud.selected.floor?.name,
+              Capacity: crud.selected.capacity,
+              Description: crud.selected.description,
+              Status: crud.selected.status
+            }).map(([k, v]) => (
+              <div key={k} className="flex justify-between py-2 border-b border-surface-100 dark:border-surface-700">
+                <span className="text-sm text-surface-500">{k}</span>
+                <span className="text-sm font-medium text-surface-900 dark:text-white">{v || '—'}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
 
-      <ConfirmDialog open={crud.deleteModal} onClose={crud.closeModals} onConfirm={() => { crud.handleDelete(); toast.success('Room deleted') }} title="Delete Room" message={`Delete "${crud.selected?.roomName}"?`} />
+      <ConfirmDialog 
+        open={crud.deleteModal} 
+        onClose={crud.closeModals} 
+        onConfirm={del} 
+        title="Delete Room" 
+        message={`Delete "${crud.selected?.name}"?`} 
+      />
     </div>
   )
 }

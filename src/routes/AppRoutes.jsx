@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
-import AdminLayout from '../layouts/AdminLayout'
+import DashboardLayout from '../layouts/DashboardLayout'
 import Loading from '../components/common/Loading'
+import ProtectedRoute from '../components/auth/ProtectedRoute'
 
 const Home = lazy(() => import('../pages/Home'))
 const Login = lazy(() => import('../pages/Login'))
@@ -30,8 +31,10 @@ const BookCopiesPage = lazy(() => import('../pages/BookCopies'))
 const BookLoansPage = lazy(() => import('../pages/BookLoans'))
 const FinesPage = lazy(() => import('../pages/Fines'))
 const AttendancePage = lazy(() => import('../pages/Attendance'))
+const TakeAttendancePage = lazy(() => import('../pages/TakeAttendance'))
 const ReportsPage = lazy(() => import('../pages/Reports'))
 const SettingsPage = lazy(() => import('../pages/Settings'))
+const ProfilePage = lazy(() => import('../pages/Profile'))
 
 const LogoutRoute = () => {
   localStorage.removeItem('token')
@@ -47,34 +50,83 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="roles" element={<RolesPage />} />
-          <Route path="students" element={<StudentsPage />} />
-          <Route path="parents" element={<ParentsPage />} />
-          <Route path="teachers" element={<TeachersPage />} />
-          <Route path="payrolls" element={<PayrollsPage />} />
-          <Route path="subjects" element={<SubjectsPage />} />
-          <Route path="courses" element={<CoursesPage />} />
-          <Route path="buildings" element={<BuildingsPage />} />
-          <Route path="floors" element={<FloorsPage />} />
-          <Route path="rooms" element={<RoomsPage />} />
-          <Route path="schedules" element={<SchedulesPage />} />
-          <Route path="enrollments" element={<EnrollmentsPage />} />
-          <Route path="exams" element={<ExamsPage />} />
-          <Route path="results" element={<ResultsPage />} />
-          <Route path="invoices" element={<InvoicesPage />} />
-          <Route path="payments" element={<PaymentsPage />} />
-          <Route path="authors" element={<AuthorsPage />} />
-          <Route path="books" element={<BooksPage />} />
-          <Route path="book-copies" element={<BookCopiesPage />} />
-          <Route path="book-loans" element={<BookLoansPage />} />
-          <Route path="fines" element={<FinesPage />} />
-          <Route path="attendance" element={<AttendancePage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="logout" element={<LogoutRoute />} />
+        {/* Admin Routes - Role 1 */}
+        <Route path="/admin" element={<ProtectedRoute allowedRoles={[1]} />}>
+          <Route element={<DashboardLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="roles" element={<RolesPage />} />
+            <Route path="students" element={<StudentsPage />} />
+            <Route path="parents" element={<ParentsPage />} />
+            <Route path="teachers" element={<TeachersPage />} />
+            <Route path="payrolls" element={<PayrollsPage />} />
+            <Route path="subjects" element={<SubjectsPage />} />
+            <Route path="courses" element={<CoursesPage />} />
+            <Route path="buildings" element={<BuildingsPage />} />
+            <Route path="floors" element={<FloorsPage />} />
+            <Route path="rooms" element={<RoomsPage />} />
+            <Route path="schedules" element={<SchedulesPage />} />
+            <Route path="enrollments" element={<EnrollmentsPage />} />
+            <Route path="exams" element={<ExamsPage />} />
+            <Route path="results" element={<ResultsPage />} />
+            <Route path="invoices" element={<InvoicesPage />} />
+            <Route path="payments" element={<PaymentsPage />} />
+            <Route path="authors" element={<AuthorsPage />} />
+            <Route path="books" element={<BooksPage />} />
+            <Route path="book-copies" element={<BookCopiesPage />} />
+            <Route path="book-loans" element={<BookLoansPage />} />
+            <Route path="fines" element={<FinesPage />} />
+            <Route path="attendance" element={<AttendancePage />} />
+            <Route path="take-attendance" element={<TakeAttendancePage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="logout" element={<LogoutRoute />} />
+          </Route>
+        </Route>
+
+        {/* Teacher Routes - Role 2 */}
+        <Route path="/teacher" element={<ProtectedRoute allowedRoles={[2]} />}>
+          <Route element={<DashboardLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="students" element={<StudentsPage />} />
+            <Route path="parents" element={<ParentsPage />} />
+            <Route path="teachers" element={<TeachersPage />} />
+            <Route path="payrolls" element={<PayrollsPage />} />
+            <Route path="subjects" element={<SubjectsPage />} />
+            <Route path="courses" element={<CoursesPage />} />
+            <Route path="schedules" element={<SchedulesPage />} />
+            <Route path="enrollments" element={<EnrollmentsPage />} />
+            <Route path="exams" element={<ExamsPage />} />
+            <Route path="results" element={<ResultsPage />} />
+            <Route path="attendance" element={<AttendancePage />} />
+            <Route path="take-attendance" element={<TakeAttendancePage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="logout" element={<LogoutRoute />} />
+          </Route>
+        </Route>
+
+        {/* Student Routes - Role 4 */}
+        <Route path="/student" element={<ProtectedRoute allowedRoles={[4]} />}>
+          <Route element={<DashboardLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="subjects" element={<SubjectsPage />} />
+            <Route path="courses" element={<CoursesPage />} />
+            <Route path="schedules" element={<SchedulesPage />} />
+            <Route path="enrollments" element={<EnrollmentsPage />} />
+            <Route path="exams" element={<ExamsPage />} />
+            <Route path="results" element={<ResultsPage />} />
+            <Route path="invoices" element={<InvoicesPage />} />
+            <Route path="payments" element={<PaymentsPage />} />
+            <Route path="authors" element={<AuthorsPage />} />
+            <Route path="books" element={<BooksPage />} />
+            <Route path="book-copies" element={<BookCopiesPage />} />
+            <Route path="book-loans" element={<BookLoansPage />} />
+            <Route path="fines" element={<FinesPage />} />
+            <Route path="attendance" element={<AttendancePage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="logout" element={<LogoutRoute />} />
+          </Route>
         </Route>
       </Routes>
     </Suspense>
