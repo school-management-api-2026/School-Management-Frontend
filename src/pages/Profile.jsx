@@ -1,21 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { User, Mail, Lock, Save, Shield, Camera } from 'lucide-react'
 import axiosClient from '../api/axios'
+import { uploadImage } from '../api/services/uploadService'
 import { useToast } from '../context/ToastContext'
 import Button from '../components/common/Button'
 import FormField, { Input } from '../components/common/FormField'
 
 export default function Profile() {
   const toast = useToast()
+  const fileInputRef = useRef(null)
+  const loadedRef = useRef(false)
 
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [errors, setErrors] = useState({})
   const [passwordErrors, setPasswordErrors] = useState({})
 
-  const [form, setForm] = useState({ name: '', username: '', email: '', phone: '' })
+  const [form, setForm] = useState({image: '', name: '', username: '', email: '', phone: '' })
   const [passwordForm, setPasswordForm] = useState({
     current_password: '',
     new_password: '',
@@ -23,12 +27,15 @@ export default function Profile() {
   })
 
   useEffect(() => {
+    if (loadedRef.current) return
+    loadedRef.current = true
     let ignore = false
-    axiosClient.get('/user').then(res => {
+    axiosClient.get('/me').then(res => {
       if (ignore) return
       const userData = res.data
       setUser(userData)
       setForm({
+        image: userData.image || '',
         name: userData.name || '',
         username: userData.username || '',
         email: userData.email || '',
@@ -40,7 +47,7 @@ export default function Profile() {
       if (!ignore) setLoading(false)
     })
     return () => { ignore = true }
-  }, [])
+  }, [toast])
 
   const handleProfileUpdate = async (e) => {
     e.preventDefault()
@@ -91,6 +98,24 @@ export default function Profile() {
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
   const updatePasswordForm = (key, value) => setPasswordForm(prev => ({ ...prev, [key]: value }))
 
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const url = await uploadImage(file)
+      updateForm('image', url)
+      setUser(prev => ({ ...prev, image: url }))
+      toast.success('Image uploaded successfully')
+    } catch (err) {
+      const detail = err?.response?.data?.message
+      toast.error(detail ? `Image upload failed: ${detail}` : 'Image upload failed. Check the server is running.')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -118,9 +143,10 @@ export default function Profile() {
                 </span>
               )}
             </div>
-            <button className="absolute -bottom-1 -right-1 w-7 h-7 bg-surface-100 dark:bg-surface-700 border-2 border-white dark:border-surface-800 rounded-lg flex items-center justify-center hover:bg-surface-200 dark:hover:bg-surface-600 transition-colors">
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="absolute -bottom-1 -right-1 w-7 h-7 bg-surface-100 dark:bg-surface-700 border-2 border-white dark:border-surface-800 rounded-lg flex items-center justify-center hover:bg-surface-200 dark:hover:bg-surface-600 transition-colors">
               <Camera size={12} className="text-surface-500" />
             </button>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-surface-900 dark:text-white">{user?.name}</h2>

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useToast } from '../context/ToastContext'
 import * as studentService from '../api/services/studentService'
+import * as enrollmentService from '../api/services/enrollmentService'
+import * as teacherCourseService from '../api/services/teacherCourseService'
 import * as attendanceService from '../api/services/attendanceService'
 import PageHeader from '../components/common/PageHeader'
 import Button from '../components/common/Button'
@@ -8,8 +10,13 @@ import FormField, { Input, Select } from '../components/common/FormField'
 
 export default function TakeAttendance() {
   const toast = useToast()
+
+  const loadedRef = useRef(false)
   
   const [students, setStudents] = useState([])
+  const [enrollments, setEnrollments] = useState([])
+  const [teacherCourses, setTeacherCourses] = useState([])
+  const [selectedClass, setSelectedClass] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -23,29 +30,47 @@ export default function TakeAttendance() {
   const [attendanceMap, setAttendanceMap] = useState({})
 
   useEffect(() => {
-    loadStudents()
-  }, [])
-
-  const loadStudents = async () => {
-    try {
-        setLoading(true)
-        const res = await studentService.getAll()
-        const fetchedStudents = res.data?.data || []
+    if (loadedRef.current) return
+    loadedRef.current = true
+    let cancelled = false
+    const loadStudents = async () => {
+      try {
+        const [studentsRes, enrollmentRes, tcRes] = await Promise.all([
+          studentService.getAll(),
+          enrollmentService.getAll(),
+          teacherCourseService.getAll(),
+        ])
+        if (cancelled) return
+        setEnrollments(enrollmentRes.data?.data || [])
+        setTeacherCourses(tcRes.data?.data || [])
+        const fetchedStudents = studentsRes.data?.data || []
         setStudents(fetchedStudents)
-        
-        // Initialize all students to "persent" (Present) by default
+
         const initMap = {}
         fetchedStudents.forEach(s => {
-           // We need to log against the user.id, which the student object holds as user_id
-           initMap[s.user_id] = 'persent'
+          initMap[s.user_id] = 'persent'
         })
         setAttendanceMap(initMap)
-    } catch (err) {
+      } catch {
         toast.error("Failed to load students")
-    } finally {
-        setLoading(false)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-  }
+    loadStudents()
+    return () => { cancelled = true }
+  }, [toast])
+
+  const filteredStudents = selectedClass
+    ? (() => {
+        const tc = teacherCourses.find(t => t.id === Number(selectedClass))
+        const courseId = tc?.course?.id
+        const enrolledUserIds = new Set(
+          enrollments.filter(e => e.course?.id === courseId).map(e => e.student?.user?.id)
+        )
+        return students.filter(s => enrolledUserIds.has(s.user_id))
+      })()
+    : students
 
   const handleStatusChange = (userId, newStatus) => {
     setAttendanceMap(prev => ({
@@ -65,18 +90,20 @@ export default function TakeAttendance() {
       let failCount = 0
 
       // Fire off attendance creates concurrently
-      const promises = students.map(async (student) => {
+      const list = filteredStudents
+      const promises = list.map(async (student) => {
           const payload = {
               user_id: student.user_id,
-              attendance_date: date,
+              date: date,
               time_in: timeIn,
               time_out: timeOut,
-              status: attendanceMap[student.user_id]
+              status: attendanceMap[student.user_id],
+              teacher_course_id: selectedClass ? Number(selectedClass) : null
           }
           try {
               await attendanceService.create(payload)
               successCount++
-          } catch (e) {
+          } catch {
               failCount++
           }
       })
@@ -95,11 +122,11 @@ export default function TakeAttendance() {
     <div className="space-y-6">
       <PageHeader 
         title="Class Attendance" 
-        description="Quickly log attendance for an entire class" 
+        description="Quickly log attendance. Pick a class to mark only its enrolled students." 
       />
       
       <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-5 p-6 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
             <FormField label="Date">
                 <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
             </FormField>
@@ -109,13 +136,21 @@ export default function TakeAttendance() {
             <FormField label="Time Out">
                 <Input type="time" value={timeOut} onChange={e => setTimeOut(e.target.value)} />
             </FormField>
+            <FormField label="Class">
+                <Select value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+                    <option value="">All Students</option>
+                    {teacherCourses.map(tc => (
+                        <option key={tc.id} value={tc.id}>{tc.teacher?.user?.name} — {tc.course?.subject?.name}</option>
+                    ))}
+                </Select>
+            </FormField>
           </div>
       </div>
 
       <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-sm overflow-hidden">
         {loading ? (
            <div className="p-8 text-center text-surface-500">Loading students...</div>
-        ) : students.length === 0 ? (
+        ) : filteredStudents.length === 0 ? (
            <div className="p-8 text-center text-surface-500">No students enrolled.</div>
         ) : (
            <table className="min-w-full divide-y divide-surface-200 dark:divide-surface-700 text-sm">
@@ -130,12 +165,12 @@ export default function TakeAttendance() {
                 </tr>
              </thead>
              <tbody className="divide-y divide-surface-200 dark:divide-surface-700 bg-white dark:bg-surface-800">
-                {students.map(student => {
+                {filteredStudents.map(student => {
                     const status = attendanceMap[student.user_id]
                     return (
                         <tr key={student.user_id} className="hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap font-medium text-surface-900 dark:text-white">
-                                {student.name}
+                                {student.user?.name || student.name || student.user_id}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-center text-emerald-500">
                                 <input type="radio" checked={status === 'persent'} onChange={() => handleStatusChange(student.user_id, 'persent')} className="w-5 h-5 cursor-pointer accent-emerald-500" />
@@ -162,7 +197,7 @@ export default function TakeAttendance() {
       </div>
 
       <div className="flex justify-end p-2">
-          {!loading && students.length > 0 && (
+          {!loading && filteredStudents.length > 0 && (
               <Button onClick={submitAll} disabled={saving} size="lg" className="w-full sm:w-auto px-10">
                  {saving ? 'Saving...' : 'Submit Attendance For All'}
               </Button>

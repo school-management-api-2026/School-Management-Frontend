@@ -1,28 +1,68 @@
-import { useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useToast } from '../context/ToastContext'
 import Button from '../components/common/Button'
+import Loading from '../components/common/Loading'
 import FormField, { Input, Select } from '../components/common/FormField'
+import * as settingService from '../api/services/settingService'
 import { Save, Moon, Bell, Globe, Shield } from 'lucide-react'
+
+const DEFAULT_SETTINGS = {
+  schoolName: 'SchoolMS Academy',
+  email: 'admin@schoolms.com',
+  phone: '012-555-0100',
+  address: '123 Education Avenue',
+  language: 'en',
+  timezone: 'UTC',
+  notifications: true,
+  autoBackup: true,
+}
+
+const toBool = v => v === '1' || v === true
 
 export default function Settings() {
   const { dark, toggle } = useTheme()
   const toast = useToast()
-  const [settings, setSettings] = useState({
-    schoolName: 'SchoolMS Academy',
-    email: 'admin@schoolms.com',
-    phone: '012-555-0100',
-    address: '123 Education Avenue',
-    language: 'en',
-    timezone: 'UTC',
-    notifications: true,
-    autoBackup: true,
-  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+
+  const loadedRef = useRef(false)
+
+  useEffect(() => {
+    if (loadedRef.current) return
+    loadedRef.current = true
+    settingService.getAll()
+      .then(res => {
+        const saved = res.data?.data || {}
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, k === 'notifications' || k === 'autoBackup' ? toBool(v) : v])),
+        })
+      })
+      .catch(() => toast.error('Failed to load settings.'))
+      .finally(() => setLoading(false))
+  }, [toast])
 
   const update = (key, value) => setSettings(prev => ({ ...prev, [key]: value }))
 
-  const handleSave = () => {
-    toast.success('Settings saved successfully')
+  const handleSave = async () => {
+    setSaving(true)
+    const payload = Object.fromEntries(
+      Object.entries(settings).map(([k, v]) => [k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v)])
+    )
+    try {
+      await settingService.saveAll(payload)
+      toast.success('Settings saved successfully')
+    } catch {
+      toast.error('Failed to save settings.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return <Loading fullPage={false} className="min-h-[60vh]" />
   }
 
   return (
@@ -117,7 +157,7 @@ export default function Settings() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave}><Save size={16} />Save Settings</Button>
+        <Button onClick={handleSave} disabled={saving}><Save size={16} />{saving ? 'Saving...' : 'Save Settings'}</Button>
       </div>
     </div>
   )

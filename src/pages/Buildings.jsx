@@ -13,7 +13,8 @@ import FormField, { Input, Select, Textarea } from '../components/common/FormFie
 
 const columns = [
   { key: 'name', label: 'Building Name' },
-  { key: 'code', label: 'Building Code' },
+  { key: 'total_floors', label: 'Total_floors'},
+  { key: 'description', label: 'description'},
   { key: 'status', label: 'Status', badge: true },
 ]
 
@@ -22,7 +23,7 @@ export default function Buildings() {
   const crud = useApiCrud(buildingService)
 
   const save = async () => {
-    if (!crud.formData.name || !crud.formData.code) { 
+    if (!crud.formData.name) { 
       toast.error('Building name and code are required')
       return 
     }
@@ -82,12 +83,20 @@ export default function Buildings() {
           <FormField label="Building Name" required>
             <Input value={crud.formData.name || ''} onChange={e => crud.updateForm('name', e.target.value)} placeholder="Building name" />
           </FormField>
-          <FormField label="Building Code" required>
-            <Input value={crud.formData.code || ''} onChange={e => crud.updateForm('code', e.target.value)} placeholder="BLD-01" />
+        
+          <FormField label="Total Floors" required>
+            <Input 
+              type="number" 
+              value={crud.formData.total_floors || ''} 
+              onChange={e => crud.updateForm('total_floors', e.target.value)} 
+              placeholder="Enter total floors" 
+            />
           </FormField>
+
           <FormField label="Description">
             <Textarea value={crud.formData.description || ''} onChange={e => crud.updateForm('description', e.target.value)} placeholder="Description" rows={3} />
           </FormField>
+          
           <FormField label="Status">
             <Select value={crud.formData.status || 'Active'} onChange={e => crud.updateForm('status', e.target.value)}>
               <option value="Active">Active</option>
@@ -104,7 +113,7 @@ export default function Buildings() {
             {Object.entries({ 
               ID: crud.selected.id,
               Name: crud.selected.name, 
-              Code: crud.selected.code,
+              Total_floors: crud.selected.total_floors,
               Description: crud.selected.description,
               Status: crud.selected.status
             }).map(([k, v]) => (

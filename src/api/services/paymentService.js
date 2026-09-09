@@ -1,6 +1,6 @@
 import axiosClient from '../axios'
 
-const BASE = '/floor'
+const BASE = '/payment'
 
 export const getAll  = ()          => axiosClient.get(BASE)
 export const getOne  = (id)        => axiosClient.get(`${BASE}/${id}`)

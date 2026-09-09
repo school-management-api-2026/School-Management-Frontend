@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { GraduationCap, BookUser, UserCheck, LibraryBig, ClipboardList, UserRoundCheck, DollarSign, AlertTriangle } from 'lucide-react'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { getSummary } from '../api/services/dashboardService'
@@ -14,8 +14,11 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const toast = useToast()
+  const loadedRef = useRef(false)
 
   useEffect(() => {
+    if (loadedRef.current) return
+    loadedRef.current = true
     getSummary()
       .then(res => {
         setData(res.data.data)
@@ -27,7 +30,7 @@ export default function Dashboard() {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  }, [toast])
 
   if (loading || !data) {
     return <Loading fullPage={false} className="min-h-[60vh]" />

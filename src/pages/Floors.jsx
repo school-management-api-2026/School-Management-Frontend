@@ -11,13 +11,11 @@ import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import EmptyState from '../components/common/EmptyState'
 import Button from '../components/common/Button'
-import FormField, { Input, Select, Textarea } from '../components/common/FormField'
+import FormField, { Input, Select } from '../components/common/FormField'
 
 const columns = [
-  { key: 'name', label: 'Name' },
   { key: 'floor_number', label: 'Floor Number' },
-  { key: 'building.name', label: 'Building' },
-  { key: 'status', label: 'Status', badge: true },
+  { key: 'building', label: 'Building', render: (_, row) => row.building?.name || '—' },
 ]
 
 export default function Floors() {
@@ -26,22 +24,20 @@ export default function Floors() {
   const [buildings, setBuildings] = useState([])
 
   useEffect(() => {
-    // Fetch buildings for the dropdown
     buildingService.getAll().then(res => {
-      setBuildings(res.data?.data || [])
-    }).catch(err => {
-      console.error("Failed to load buildings", err)
-    })
+      setBuildings(res.data?.data ?? res.data ?? [])
+    }).catch(() => setBuildings([]))
   }, [])
 
   const save = async () => {
-    if (!crud.formData.building_id || !crud.formData.name || !crud.formData.floor_number) { 
-      toast.error('Building, name, and floor number are required')
+    if (!crud.formData.building_id || !crud.formData.floor_number) { 
+      toast.error('Building and floor number are required')
       return 
     }
     
+    const payload = { building_id: Number(crud.formData.building_id), floor_number: crud.formData.floor_number }
     try {
-      await crud.handleSave(crud.formData)
+      await crud.handleSave(payload)
       toast.success(crud.selected ? 'Floor updated' : 'Floor created')
     } catch {
       toast.error(crud.error || 'Operation failed')
@@ -62,7 +58,7 @@ export default function Floors() {
       <PageHeader 
         title="Floors" 
         description="Manage building floors" 
-        onAdd={() => crud.openAdd({ status: 'Active' })} 
+        onAdd={() => crud.openAdd({})} 
         addLabel="Add Floor" 
       />
       
@@ -80,7 +76,7 @@ export default function Floors() {
       {crud.error && <p className="text-sm text-red-500">{crud.error}</p>}
 
       {!crud.loading && crud.paginated.length === 0 ? (
-        <EmptyState title="No floors found" action={() => crud.openAdd({ status: 'Active' })} actionLabel="Add Floor" />
+        <EmptyState title="No floors found" action={() => crud.openAdd({})} actionLabel="Add Floor" />
       ) : (
         <>
           <DataTable columns={columns} data={crud.paginated} onView={crud.openView} onEdit={crud.openEdit} onDelete={crud.openDelete} />
@@ -99,25 +95,12 @@ export default function Floors() {
             <Select value={crud.formData.building_id || ''} onChange={e => crud.updateForm('building_id', e.target.value)}>
               <option value="">Select Building</option>
               {buildings.map(b => (
-                <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+                <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </Select>
           </FormField>
-          <FormField label="Floor Name" required>
-            <Input value={crud.formData.name || ''} onChange={e => crud.updateForm('name', e.target.value)} placeholder="Main Floor" />
-          </FormField>
           <FormField label="Floor Number" required>
             <Input value={crud.formData.floor_number || ''} onChange={e => crud.updateForm('floor_number', e.target.value)} placeholder="1" />
-          </FormField>
-          <FormField label="Description">
-            <Textarea value={crud.formData.description || ''} onChange={e => crud.updateForm('description', e.target.value)} placeholder="Description" rows={3} />
-          </FormField>
-          <FormField label="Status">
-            <Select value={crud.formData.status || 'Active'} onChange={e => crud.updateForm('status', e.target.value)}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-              <option value="Maintenance">Maintenance</option>
-            </Select>
           </FormField>
         </div>
       </Modal>
@@ -127,11 +110,8 @@ export default function Floors() {
           <div className="space-y-3">
             {Object.entries({ 
               ID: crud.selected.id,
-              Name: crud.selected.name, 
               'Floor Number': crud.selected.floor_number,
               Building: crud.selected.building?.name,
-              Description: crud.selected.description,
-              Status: crud.selected.status
             }).map(([k, v]) => (
               <div key={k} className="flex justify-between py-2 border-b border-surface-100 dark:border-surface-700">
                 <span className="text-sm text-surface-500">{k}</span>
@@ -147,7 +127,7 @@ export default function Floors() {
         onClose={crud.closeModals} 
         onConfirm={del} 
         title="Delete Floor" 
-        message={`Delete "${crud.selected?.name}"?`} 
+        message={`Delete floor ${crud.selected?.floor_number}?`} 
       />
     </div>
   )

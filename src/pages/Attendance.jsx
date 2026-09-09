@@ -3,9 +3,9 @@ import { useToast } from '../context/ToastContext'
 import { useApiCrud } from '../hooks/useApiCrud'
 import * as attendanceService from '../api/services/attendanceService'
 import * as studentService from '../api/services/studentService'
+import * as teacherCourseService from '../api/services/teacherCourseService'
 import PageHeader from '../components/common/PageHeader'
 import SearchBar from '../components/common/SearchBar'
-import FilterDropdown from '../components/common/FilterDropdown'
 import DataTable from '../components/common/DataTable'
 import Pagination from '../components/common/Pagination'
 import Modal from '../components/common/Modal'
@@ -21,45 +21,57 @@ const statuses = [
   { value: 'permission', label: 'Permission (Excused)' }
 ]
 
-const columns = [
-  { key: 'user.name', label: 'Student' },
-  { key: 'attendance_date', label: 'Date' },
-  { key: 'time_in', label: 'Time In', render: v => v || '—' },
-  { key: 'time_out', label: 'Time Out', render: v => v || '—' },
-  { 
-    key: 'status', 
-    label: 'Status', 
-    render: v => {
-      const match = statuses.find(s => s.value === v)
-      const label = match ? match.label : v
-      let colorClass = 'bg-surface-100 text-surface-800 dark:bg-surface-800 dark:text-surface-300'
-      if (v === 'persent') colorClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300'
-      if (v === 'absent') colorClass = 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300'
-      if (v === 'late') colorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300'
-      return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}>{label}</span>
-    }
-  },
-]
-
 export default function Attendance() {
   const toast = useToast()
   const crud = useApiCrud(attendanceService)
   const [students, setStudents] = useState([])
+  const [teacherCourses, setTeacherCourses] = useState([])
 
   useEffect(() => {
     studentService.getAll().then(res => {
       setStudents(res.data?.data || [])
     }).catch(err => console.error("Failed to load students", err))
+    teacherCourseService.getAll().then(res => {
+      setTeacherCourses(res.data?.data || [])
+    }).catch(err => console.error("Failed to load classes", err))
   }, [])
 
+  const classLabel = tc => tc ? `${tc.teacher?.user?.name} — ${tc.course?.subject?.name}` : '—'
+
+  const studentName = (userId) => {
+    const st = students.find(s => s.user_id === userId)
+    return st?.user?.name || st?.name || '—'
+  }
+
+  const columns = [
+    { key: 'user_id', label: 'Student', render: v => studentName(v) },
+    { key: 'class', label: 'Class', render: (_, row) => classLabel(row.teacher_course) },
+    { key: 'date', label: 'Date' },
+    { key: 'time_in', label: 'Time In', render: v => v || '—' },
+    { key: 'time_out', label: 'Time Out', render: v => v || '—' },
+    {
+      key: 'status',
+      label: 'Status',
+      render: v => {
+        const match = statuses.find(s => s.value === v)
+        const label = match ? match.label : v
+        let colorClass = 'bg-surface-100 text-surface-800 dark:bg-surface-800 dark:text-surface-300'
+        if (v === 'persent') colorClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300'
+        if (v === 'absent') colorClass = 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300'
+        if (v === 'late') colorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300'
+        return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}>{label}</span>
+      }
+    },
+  ]
+
   const save = async () => {
-    if (!crud.formData.user_id || !crud.formData.attendance_date || !crud.formData.status || !crud.formData.time_in || !crud.formData.time_out) { 
+    if (!crud.formData.user_id || !crud.formData.date || !crud.formData.status || !crud.formData.time_in || !crud.formData.time_out) { 
       toast.error('All fields (Student, Date, Time In, Time Out, Status) are required'); 
       return 
     }
     
     try {
-      await crud.handleSave(crud.formData)
+      await crud.handleSave({ ...crud.formData, teacher_course_id: crud.formData.teacher_course_id ? Number(crud.formData.teacher_course_id) : null })
       toast.success(crud.selected ? 'Attendance updated' : 'Attendance recorded')
     } catch {
       toast.error(crud.error || 'Operation failed')
@@ -80,7 +92,7 @@ export default function Attendance() {
       <PageHeader 
         title="Student Attendance" 
         description="Track daily attendance for students" 
-        onAdd={() => crud.openAdd({ attendance_date: new Date().toISOString().split('T')[0], status: '', time_in: '08:00', time_out: '16:00' })} 
+        onAdd={() => crud.openAdd({ date: new Date().toISOString().split('T')[0], status: '', time_in: '08:00', time_out: '16:00' })} 
         addLabel="Record Attendance" 
       />
       <div className="flex flex-col sm:flex-row gap-3">
@@ -93,7 +105,7 @@ export default function Attendance() {
       {crud.error && <p className="text-sm text-red-500">{crud.error}</p>}
 
       {!crud.loading && crud.paginated.length === 0 ? (
-        <EmptyState title="No attendance records" action={() => crud.openAdd({ attendance_date: new Date().toISOString().split('T')[0], status: '', time_in: '08:00', time_out: '16:00' })} actionLabel="Record Attendance" /> 
+        <EmptyState title="No attendance records" action={() => crud.openAdd({ date: new Date().toISOString().split('T')[0], status: '', time_in: '08:00', time_out: '16:00' })} actionLabel="Record Attendance" /> 
       ) : (
         <>
           <DataTable columns={columns} data={crud.paginated} onView={crud.openView} onEdit={crud.openEdit} onDelete={crud.openDelete} />
@@ -108,14 +120,20 @@ export default function Attendance() {
         footer={<><Button variant="secondary" onClick={crud.closeModals}>Cancel</Button><Button onClick={save} disabled={crud.loading}>{crud.selected ? 'Update' : 'Record'}</Button></>}
       >
         <div className="space-y-4">
+          <FormField label="Class">
+            <Select value={crud.formData.teacher_course_id || ''} onChange={e => crud.updateForm('teacher_course_id', e.target.value)}>
+              <option value="">No Class</option>
+              {teacherCourses.map(tc => <option key={tc.id} value={tc.id}>{classLabel(tc)}</option>)}
+            </Select>
+          </FormField>
           <FormField label="Student" required>
             <Select value={crud.formData.user_id || ''} onChange={e => crud.updateForm('user_id', e.target.value)}>
               <option value="">Select Student</option>
-              {students.map(u => <option key={u.id} value={u.user_id}>{u.name}</option>)}
+              {students.map(u => <option key={u.id} value={u.user_id}>{u.user?.name || u.name}</option>)}
             </Select>
           </FormField>
           <FormField label="Date" required>
-            <Input type="date" value={crud.formData.attendance_date || ''} onChange={e => crud.updateForm('attendance_date', e.target.value)} />
+            <Input type="date" value={crud.formData.date || ''} onChange={e => crud.updateForm('date', e.target.value)} />
           </FormField>
           <FormField label="Time In" required>
             <Input type="time" value={crud.formData.time_in || ''} onChange={e => crud.updateForm('time_in', e.target.value)} />
@@ -136,8 +154,9 @@ export default function Attendance() {
         {crud.selected && (
           <div className="space-y-3">
             {Object.entries({ 
-              Student: crud.selected.user?.name, 
-              Date: crud.selected.attendance_date, 
+              Student: studentName(crud.selected.user_id), 
+              Class: classLabel(crud.selected.teacher_course), 
+              Date: crud.selected.date, 
               'Time In': crud.selected.time_in || '—', 
               'Time Out': crud.selected.time_out || '—', 
               Status: (statuses.find(s => s.value === crud.selected.status) || {}).label || crud.selected.status 

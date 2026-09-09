@@ -1,12 +1,36 @@
+import { useState, useEffect, useRef } from 'react'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import ChartCard from '../components/common/ChartCard'
 import StatCard from '../components/common/StatCard'
+import Loading from '../components/common/Loading'
 import { GraduationCap, BookUser, DollarSign, BookOpen } from 'lucide-react'
-import { dashboardStats, enrollmentTrend, attendanceOverview, revenueOverview, libraryStats } from '../data/mockData'
+import { getSummary } from '../api/services/dashboardService'
+import { useToast } from '../context/ToastContext'
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444']
 
 export default function Reports() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const toast = useToast()
+  const loadedRef = useRef(false)
+
+  useEffect(() => {
+    if (loadedRef.current) return
+    loadedRef.current = true
+    getSummary()
+      .then(res => setData(res.data.data))
+      .catch(() => toast.error('Failed to load report data.'))
+      .finally(() => setLoading(false))
+  }, [toast])
+
+  if (loading || !data) {
+    return <Loading fullPage={false} className="min-h-[60vh]" />
+  }
+
+  const { dashboardStats, charts } = data
+  const { enrollmentTrend, attendanceOverview, revenueOverview, libraryStats } = charts
+
   return (
     <div className="space-y-6">
       <div>
@@ -65,7 +89,7 @@ export default function Reports() {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie data={libraryStats} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                {libraryStats.map((_, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}
+                {libraryStats.map((entry, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
               <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }} />
             </PieChart>
