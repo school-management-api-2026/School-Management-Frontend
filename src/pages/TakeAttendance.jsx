@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useToast } from '../context/ToastContext'
 import * as studentService from '../api/services/studentService'
 import * as enrollmentService from '../api/services/enrollmentService'
@@ -8,11 +8,11 @@ import PageHeader from '../components/common/PageHeader'
 import Button from '../components/common/Button'
 import FormField, { Input, Select } from '../components/common/FormField'
 
+const extract = res => res?.data?.data ?? res?.data ?? []
+
 export default function TakeAttendance() {
   const toast = useToast()
 
-  const loadedRef = useRef(false)
-  
   const [students, setStudents] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [teacherCourses, setTeacherCourses] = useState([])
@@ -29,9 +29,28 @@ export default function TakeAttendance() {
   // Map of userId -> status
   const [attendanceMap, setAttendanceMap] = useState({})
 
+  const currentUser = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  }, [])
+
+  const myTeacherCourses = useMemo(() => {
+    const matched = []
+    teacherCourses.forEach(tc => {
+      const teacherUserId = tc.teacher?.user?.id ?? tc.teacher?.user_id
+      const mine = currentUser
+        ? String(teacherUserId) === String(currentUser.id) || String(teacherUserId) === String(currentUser.user_id)
+        : false
+      if (mine) matched.push(tc)
+    })
+    return matched.length > 0 ? matched : teacherCourses
+  }, [teacherCourses, currentUser])
+
   useEffect(() => {
-    if (loadedRef.current) return
-    loadedRef.current = true
     let cancelled = false
     const loadStudents = async () => {
       try {
@@ -41,9 +60,9 @@ export default function TakeAttendance() {
           teacherCourseService.getAll(),
         ])
         if (cancelled) return
-        setEnrollments(enrollmentRes.data?.data || [])
-        setTeacherCourses(tcRes.data?.data || [])
-        const fetchedStudents = studentsRes.data?.data || []
+        setEnrollments(extract(enrollmentRes))
+        setTeacherCourses(extract(tcRes))
+        const fetchedStudents = extract(studentsRes)
         setStudents(fetchedStudents)
 
         const initMap = {}
@@ -52,7 +71,7 @@ export default function TakeAttendance() {
         })
         setAttendanceMap(initMap)
       } catch {
-        toast.error("Failed to load students")
+        toast.error('Failed to load students. Please try again.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -61,9 +80,11 @@ export default function TakeAttendance() {
     return () => { cancelled = true }
   }, [toast])
 
-  const filteredStudents = selectedClass
+  const activeClass = selectedClass || (teacherCourses.length > 0 && !loading ? String(teacherCourses[0].id) : '')
+
+  const filteredStudents = activeClass
     ? (() => {
-        const tc = teacherCourses.find(t => t.id === Number(selectedClass))
+        const tc = teacherCourses.find(t => t.id === Number(activeClass))
         const courseId = tc?.course?.id
         const enrolledUserIds = new Set(
           enrollments.filter(e => e.course?.id === courseId).map(e => e.student?.user?.id)
@@ -84,6 +105,10 @@ export default function TakeAttendance() {
           toast.error("Please ensure Date, Time In, and Time Out are set.")
           return
       }
+      if (!selectedClass) {
+          toast.error("Please select a class first.")
+          return
+      }
 
       setSaving(true)
       let successCount = 0
@@ -98,7 +123,7 @@ export default function TakeAttendance() {
               time_in: timeIn,
               time_out: timeOut,
               status: attendanceMap[student.user_id],
-              teacher_course_id: selectedClass ? Number(selectedClass) : null
+              teacher_course_id: Number(activeClass)
           }
           try {
               await attendanceService.create(payload)
@@ -120,10 +145,10 @@ export default function TakeAttendance() {
 
   return (
     <div className="space-y-6">
-      <PageHeader 
-        title="Class Attendance" 
-        description="Quickly log attendance. Pick a class to mark only its enrolled students." 
-      />
+<PageHeader 
+          title="Class Attendance" 
+          description="Quickly log attendance. Pick one of your classes to mark its enrolled students." 
+        />
       
       <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-5 p-6 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -137,9 +162,9 @@ export default function TakeAttendance() {
                 <Input type="time" value={timeOut} onChange={e => setTimeOut(e.target.value)} />
             </FormField>
             <FormField label="Class">
-                <Select value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
-                    <option value="">All Students</option>
-                    {teacherCourses.map(tc => (
+                <Select value={activeClass} onChange={e => setSelectedClass(e.target.value)} disabled={myTeacherCourses.length === 0}>
+                    <option value="">{myTeacherCourses.length === 0 ? 'No classes assigned' : 'Select a class'}</option>
+                    {myTeacherCourses.map(tc => (
                         <option key={tc.id} value={tc.id}>{tc.teacher?.user?.name} — {tc.course?.subject?.name}</option>
                     ))}
                 </Select>

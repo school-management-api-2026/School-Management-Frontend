@@ -69,10 +69,12 @@ export default function Sidebar() {
     .filter(group => !group.allowedRoles || group.allowedRoles.includes(userRoleId))
     .map(group => ({
       ...group,
-      items: group.items.map(item => ({
-        ...item,
-        path: item.path.replace(/^\/admin/, basePath)
-      }))
+      items: group.items
+        .filter(item => !item.allowedRoles || item.allowedRoles.includes(userRoleId))
+        .map(item => ({
+          ...item,
+          path: item.path.replace(/^\/admin/, basePath)
+        }))
     }));
     
   const processedLogoutItem = { ...logoutItem, path: logoutItem.path.replace(/^\/admin/, basePath) };

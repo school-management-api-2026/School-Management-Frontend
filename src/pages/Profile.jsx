@@ -9,7 +9,6 @@ import FormField, { Input } from '../components/common/FormField'
 export default function Profile() {
   const toast = useToast()
   const fileInputRef = useRef(null)
-  const loadedRef = useRef(false)
 
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -20,6 +19,7 @@ export default function Profile() {
   const [passwordErrors, setPasswordErrors] = useState({})
 
   const [form, setForm] = useState({image: '', name: '', username: '', email: '', phone: '' })
+  const latestImageRef = useRef('')
   const [passwordForm, setPasswordForm] = useState({
     current_password: '',
     new_password: '',
@@ -27,13 +27,14 @@ export default function Profile() {
   })
 
   useEffect(() => {
-    if (loadedRef.current) return
-    loadedRef.current = true
     let ignore = false
     axiosClient.get('/me').then(res => {
       if (ignore) return
       const userData = res.data
-      setUser(userData)
+      let stored = null
+      try { stored = JSON.parse(localStorage.getItem('user') || 'null') } catch { /* ignore */ }
+      const merged = { ...(userData || {}), image: stored?.image || userData?.image || '' }
+      setUser(merged)
       setForm({
         image: userData.image || '',
         name: userData.name || '',
@@ -55,10 +56,14 @@ export default function Profile() {
     setErrors({})
 
     try {
-      const res = await axiosClient.put('/profile', form)
-      const updatedUser = res.data.user
-      setUser(updatedUser)
-      localStorage.setItem('user', JSON.stringify(updatedUser))
+      const imageToSave = latestImageRef.current || form.image || ''
+      const res = await axiosClient.put('/profile', { ...form, image: imageToSave })
+      const updatedUser = res.data.user || res.data.data || res.data
+      const mergedUser = { ...updatedUser, image: imageToSave || updatedUser?.image || '' }
+      setUser(mergedUser)
+      setForm(prev => ({ ...prev, image: mergedUser.image }))
+      localStorage.setItem('user', JSON.stringify(mergedUser))
+      window.dispatchEvent(new Event('user-updated'))
       toast.success(res.data.message || 'Profile updated successfully')
     } catch (err) {
       if (err.response?.status === 422 && err.response?.data?.errors) {
@@ -104,11 +109,17 @@ export default function Profile() {
     setUploading(true)
     try {
       const url = await uploadImage(file)
+      latestImageRef.current = url
       updateForm('image', url)
       setUser(prev => ({ ...prev, image: url }))
-      toast.success('Image uploaded successfully')
+      try {
+        const parsed = JSON.parse(localStorage.getItem('user') || 'null')
+        if (parsed) localStorage.setItem('user', JSON.stringify({ ...parsed, image: url }))
+      } catch { /* ignore parse error */ }
+      window.dispatchEvent(new Event('user-updated'))
+      toast.success('Image uploaded successfully. Click Save Changes to persist it.')
     } catch (err) {
-      const detail = err?.response?.data?.message
+      const detail = err?.response?.data?.message || err?.message
       toast.error(detail ? `Image upload failed: ${detail}` : 'Image upload failed. Check the server is running.')
     } finally {
       setUploading(false)
@@ -136,8 +147,8 @@ export default function Profile() {
           <div className="relative">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-lg shadow-primary-500/20">
               {user?.image ? (
-                <img src={user.image} alt={user.name} className="w-full h-full rounded-2xl object-cover" />
-              ) : (
+                <img src={user.image} alt={user.name} onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/default-profile.webp' }} className="w-full h-full rounded-2xl object-cover" />
+              ) : ( 
                 <span className="text-2xl font-bold text-white">
                   {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                 </span>

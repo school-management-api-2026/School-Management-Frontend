@@ -1,10 +1,21 @@
-import axiosClient from '../axios'
-
 export async function uploadImage(file) {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+
   const formData = new FormData()
-  formData.append('image', file)
+  formData.append('file', file)
+  formData.append('upload_preset', uploadPreset)
 
-  const res = await axiosClient.post('/upload', formData)
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  })
 
-  return res.data.url
+  const data = await res.json()
+
+  if (!res.ok) {
+    throw new Error(data.error?.message || 'Upload failed')
+  }
+
+  return data.secure_url
 }

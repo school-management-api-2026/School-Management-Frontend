@@ -1,5 +1,5 @@
 import { Menu, Search, Bell, Sun, Moon, User, ChevronDown, LogOut } from 'lucide-react'
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSidebar } from '../context/SidebarContext'
 import { useTheme } from '../context/ThemeContext'
@@ -13,6 +13,12 @@ export default function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      return stored ? JSON.parse(stored) : null
+    } catch { return null }
+  })
   const profileRef = useRef()
   const notifRef = useRef()
 
@@ -25,15 +31,48 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const currentUser = useMemo(() => {
-    try {
-      const stored = localStorage.getItem('user')
-      return stored ? JSON.parse(stored) : null
-    } catch { return null }
+  useEffect(() => {
+    let ignore = false
+    axiosClient.get('/me').then(res => {
+      if (ignore || !res.data) return
+      const fresh = res.data
+      setCurrentUser(fresh)
+      try {
+        const parsed = JSON.parse(localStorage.getItem('user') || 'null')
+        const merged = parsed
+          ? { ...parsed, ...fresh, image: parsed.image || fresh.image || '' }
+          : fresh
+        localStorage.setItem('user', JSON.stringify(merged))
+      } catch { /* ignore parse error */ }
+    }).catch(() => { /* keep stored user */ })
+    return () => { ignore = true }
+  }, [])
+
+  useEffect(() => {
+    const onUserUpdated = () => {
+      try {
+        const stored = localStorage.getItem('user')
+        setCurrentUser(stored ? JSON.parse(stored) : null)
+      } catch { setCurrentUser(null) }
+    }
+    window.addEventListener('user-updated', onUserUpdated)
+    window.addEventListener('storage', onUserUpdated)
+    return () => {
+      window.removeEventListener('user-updated', onUserUpdated)
+      window.removeEventListener('storage', onUserUpdated)
+    }
   }, [])
 
   const userName = currentUser?.name || 'Guest'
-  const userRole = currentUser?.role?.name || 'Unknown'
+  const roleNames = { 1: 'Admin', 2: 'Teacher', 3: 'Librarian', 4: 'Student' }
+  const userRole = currentUser?.role?.name || roleNames[currentUser?.role_id] || 'Unknown'
+  const userRoleId = currentUser?.role_id ? parseInt(currentUser.role_id, 10) : 1
+
+  const getProfilePath = () => {
+    if (userRoleId === 2) return '/teacher/profile'
+    if (userRoleId === 4) return '/student/profile'
+    return '/admin/profile'
+  }
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -104,8 +143,12 @@ export default function Navbar() {
 
           <div ref={profileRef} className="relative">
             <button onClick={() => setProfileOpen(!profileOpen)} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors">
-              <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-500/20 flex items-center justify-center">
-                <User size={16} className="text-primary-600 dark:text-primary-400" />
+              <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-500/20 flex items-center justify-center overflow-hidden">
+                {currentUser?.image ? (
+                  <img src={currentUser.image} alt={userName} className="w-8 h-8 rounded-full object-cover" onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/default-profile.webp' }} />
+                ) : (
+                  <User size={16} className="text-primary-600 dark:text-primary-400" />
+                )}
               </div>
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium text-surface-900 dark:text-white">{userName}</p>
@@ -116,7 +159,7 @@ export default function Navbar() {
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-lg overflow-hidden">
                 <div className="py-1">
-                  <button onClick={() => { setProfileOpen(false); navigate('/admin/profile') }} className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">Profile</button>
+                  <button onClick={() => { setProfileOpen(false); navigate(getProfilePath()) }} className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">Profile</button>
                   <button onClick={() => { setProfileOpen(false); navigate('/admin/settings') }} className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50 transition-colors">Settings</button>
                   <hr className="border-surface-200 dark:border-surface-700" />
                   <button onClick={handleLogout} disabled={loggingOut} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-500/10 transition-colors disabled:opacity-50">

@@ -3,7 +3,7 @@ import {
   Wallet, BookOpen, LibraryBig, Building2, Layers, DoorOpen, CalendarDays,
   ClipboardList, FileText, Award, Receipt, CreditCard, Library,
   PenTool, BookCopy, BookMarked, HandCoins, UserRoundCheck, ClipboardCheck,
-  BarChart3, Settings, LogOut
+  BarChart3, Settings, LogOut, User
 } from 'lucide-react'
 
 export const navGroups = [
@@ -28,8 +28,8 @@ export const navGroups = [
     items: [
       { name: 'Students', path: '/admin/students', icon: GraduationCap },
       { name: 'Parents', path: '/admin/parents', icon: UserCheck },
-      { name: 'Teachers', path: '/admin/teachers', icon: BookUser },
-      { name: 'Payrolls', path: '/admin/payrolls', icon: Wallet },
+      { name: 'Teachers', path: '/admin/teachers', icon: BookUser, allowedRoles: [1] },
+      { name: 'Payrolls', path: '/admin/payrolls', icon: Wallet, allowedRoles: [1] },
     ],
   },
   {
@@ -38,7 +38,7 @@ export const navGroups = [
     items: [
       { name: 'Subjects', path: '/admin/subjects', icon: BookOpen },
       { name: 'Courses', path: '/admin/courses', icon: LibraryBig },
-      { name: 'Enrollments', path: '/admin/enrollments', icon: ClipboardList },
+      { name: 'Enrollments', path: '/admin/enrollments', icon: ClipboardList, allowedRoles: [1,2, 4] },
       { name: 'Schedules', path: '/admin/schedules', icon: CalendarDays },
       { name: 'Exams', path: '/admin/exams', icon: FileText },
       { name: 'Results', path: '/admin/results', icon: Award },
@@ -86,6 +86,13 @@ export const navGroups = [
     items: [
       { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
       { name: 'Settings', path: '/admin/settings', icon: Settings },
+    ],
+  },
+  {
+    label: 'Account',
+    allowedRoles: [1, 2, 3, 4],
+    items: [
+      { name: 'My Profile', path: '/admin/profile', icon: User },
     ],
   },
 ]

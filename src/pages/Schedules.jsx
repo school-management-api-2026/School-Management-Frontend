@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useToast } from '../context/ToastContext'
 import { useApiCrud } from '../hooks/useApiCrud'
 import * as scheduleService from '../api/services/scheduleService'
@@ -16,7 +16,6 @@ import FormField, { Input, Select } from '../components/common/FormField'
 import { CalendarDays, List } from 'lucide-react'
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00']
 
 export default function Schedules() {
   const toast = useToast()
@@ -36,6 +35,11 @@ export default function Schedules() {
 
   const startTime = row => row.time_start?.slice(0, 5) || '—'
   const endTime = row => row.time_out?.slice(0, 5) || '—'
+
+  const timeSlots = useMemo(() => {
+    const times = new Set(crud.filtered.map(s => startTime(s)).filter(t => t && t !== '—'))
+    return [...times].sort((a, b) => a.localeCompare(b))
+  }, [crud.filtered])
 
   const columns = [
     { key: 'day_of_week', label: 'Day' },
@@ -107,16 +111,16 @@ export default function Schedules() {
                 <tr key={time} className="bg-white dark:bg-surface-900">
                   <td className="px-3 py-3 text-xs text-surface-400 font-mono">{time}</td>
                   {days.map(day => {
-                    const slot = crud.filtered.find(s => s.day_of_week === day && startTime(s) === time)
+                    const slots = crud.filtered.filter(s => s.day_of_week === day && startTime(s) === time)
                     return (
                       <td key={day} className="px-2 py-1">
-                        {slot ? (
-                          <div className="bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg p-2">
+                        {slots.map(slot => (
+                          <div key={slot.id} className="bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg p-2 mb-1">
                             <p className="text-xs font-semibold text-primary-700 dark:text-primary-400 truncate">{slot.teacher_course?.course?.subject?.name}</p>
                             <p className="text-[10px] text-surface-500 truncate">{slot.teacher_course?.teacher?.user?.name}</p>
                             <p className="text-[10px] text-surface-400 truncate">{slot.room?.name || slot.room?.room_number} · {startTime(slot)}-{endTime(slot)}</p>
                           </div>
-                        ) : null}
+                        ))}
                       </td>
                     )
                   })}

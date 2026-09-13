@@ -1,14 +1,31 @@
 import { useState, useEffect, useRef } from 'react'
-import { GraduationCap, BookUser, UserCheck, LibraryBig, ClipboardList, UserRoundCheck, DollarSign, AlertTriangle } from 'lucide-react'
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { GraduationCap, BookUser, UserCheck, LibraryBig, ClipboardList, UserRoundCheck, DollarSign, AlertTriangle, CalendarDays } from 'lucide-react'
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { getSummary } from '../api/services/dashboardService'
 import { useToast } from '../context/ToastContext'
 import StatCard from '../components/common/StatCard'
 import ChartCard from '../components/common/ChartCard'
 import StatusBadge from '../components/common/StatusBadge'
 import Loading from '../components/common/Loading'
+import TeacherDashboard from './TeacherDashboard'
 
 const PIE_COLORS = ['#22c55e', '#6366f1', '#ef4444']
+
+function ChartTooltip({ active, payload, label, format }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 px-3 py-2 text-xs shadow-lg">
+      {label && <p className="font-semibold text-surface-900 dark:text-white mb-1">{label}</p>}
+      {payload.map(p => (
+        <div key={p.dataKey} className="flex items-center gap-2">
+          {p.color && <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />}
+          <span className="text-surface-500 dark:text-surface-400 capitalize">{p.name}:</span>
+          <span className="font-medium text-surface-900 dark:text-white">{format ? format(p.value) : p.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const [data, setData] = useState(null)
@@ -16,12 +33,23 @@ export default function Dashboard() {
   const toast = useToast()
   const loadedRef = useRef(false)
 
+  const currentUser = (() => {
+    try {
+      const stored = localStorage.getItem('user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })()
+  const isTeacher = currentUser && String(currentUser.role_id) === '2'
+
   useEffect(() => {
+    if (isTeacher) return
     if (loadedRef.current) return
     loadedRef.current = true
     getSummary()
       .then(res => {
-        setData(res.data.data)
+        setData(res.data?.data ?? res.data)
       })
       .catch(err => {
         toast.error("Failed to load dashboard data.")
@@ -30,20 +58,36 @@ export default function Dashboard() {
       .finally(() => {
         setLoading(false)
       })
-  }, [toast])
+  }, [toast, isTeacher])
+
+  useEffect(() => {
+    if (isTeacher) return undefined
+    const onFocus = () => {
+      getSummary()
+        .then(res => setData(res.data?.data ?? res.data))
+        .catch(err => console.error(err))
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [isTeacher])
+
+  if (isTeacher) {
+    return <TeacherDashboard />
+  }
 
   if (loading || !data) {
     return <Loading fullPage={false} className="min-h-[60vh]" />
   }
 
-  const { dashboardStats, tables, charts } = data
-  const { recentStudents, recentEnrollments, todayAttendance, upcomingExams, recentPayments } = tables
-  const { enrollmentTrend, attendanceOverview, revenueOverview, libraryStats } = charts
+  const dashboardStats = data.dashboardStats || {}
+  const tables = data.tables || {}
+  const charts = data.charts || {}
+  const { recentStudents = [], recentEnrollments = [], todayAttendance = [], upcomingExams = [], recentPayments = [] } = tables
+  const { enrollmentTrend = [], attendanceOverview = [], revenueOverview = [], libraryStats = [] } = charts
 
-  const attendanceTotal = dashboardStats.attendanceToday.present + 
-                          dashboardStats.attendanceToday.absent + 
-                          dashboardStats.attendanceToday.late + 
-                          dashboardStats.attendanceToday.excused;
+  const att = dashboardStats.attendanceToday || {}
+  const attendanceTotal = (att.present || 0) + (att.absent || 0) + (att.late || 0) + (att.excused || 0)
+  const totalRevenue = dashboardStats.totalRevenue || 0
 
   return (
     <div className="space-y-6">
@@ -53,14 +97,14 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Students" value={dashboardStats.totalStudents} icon={GraduationCap} color="primary" />
-        <StatCard title="Total Teachers" value={dashboardStats.totalTeachers} icon={BookUser} color="info" />
-        <StatCard title="Total Parents" value={dashboardStats.totalParents} icon={UserCheck} color="success" />
-        <StatCard title="Total Courses" value={dashboardStats.totalCourses} icon={LibraryBig} color="warning" />
-        <StatCard title="Total Enrollments" value={dashboardStats.totalEnrollments} icon={ClipboardList} color="primary" />
-        <StatCard title="Attendance Today" value={`${dashboardStats.attendanceToday.present}/${attendanceTotal}`} icon={UserRoundCheck} color="success" />
-        <StatCard title="Total Revenue" value={`$${dashboardStats.totalRevenue.toLocaleString()}`} icon={DollarSign} color="success" />
-        <StatCard title="Outstanding" value={`$${dashboardStats.outstandingPayments.toLocaleString()}`} icon={AlertTriangle} color="danger" />
+        <StatCard title="Total Students" value={dashboardStats.totalStudents || 0} icon={GraduationCap} color="primary" />
+        <StatCard title="Total Teachers" value={dashboardStats.totalTeachers || 0} icon={BookUser} color="info" />
+        <StatCard title="Total Parents" value={dashboardStats.totalParents || 0} icon={UserCheck} color="success" />
+        <StatCard title="Total Courses" value={dashboardStats.totalCourses || 0} icon={LibraryBig} color="warning" />
+        <StatCard title="Total Enrollments" value={dashboardStats.totalEnrollments || 0} icon={ClipboardList} color="primary" />
+        <StatCard title="Attendance Today" value={`${att.present || 0}/${attendanceTotal}`} icon={UserRoundCheck} color="success" />
+        <StatCard title="Total Revenue" value={`$${totalRevenue.toLocaleString()}`} icon={DollarSign} color="success" />
+        <StatCard title="Outstanding" value={`$${(dashboardStats.outstandingPayments || 0).toLocaleString()}`} icon={AlertTriangle} color="danger" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -73,10 +117,10 @@ export default function Dashboard() {
                   <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-              <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
-              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#94a3b8" axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" axisLine={false} tickLine={false} />
+              <Tooltip content={ChartTooltip} />
               <Area type="monotone" dataKey="count" stroke="#6366f1" fill="url(#enrollGrad)" strokeWidth={2} name="Enrollments" />
             </AreaChart>
           </ResponsiveContainer>
@@ -85,11 +129,10 @@ export default function Dashboard() {
         <ChartCard title="Attendance Overview">
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={attendanceOverview}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-              <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
-              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="#94a3b8" axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" axisLine={false} tickLine={false} />
+              <Tooltip cursor={{ fill: '#e2e8f0', opacity: 0.35 }} content={ChartTooltip} />
               <Bar dataKey="present" fill="#22c55e" radius={[4, 4, 0, 0]} name="Present" />
               <Bar dataKey="absent" fill="#ef4444" radius={[4, 4, 0, 0]} name="Absent" />
               <Bar dataKey="late" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Late" />
@@ -106,30 +149,39 @@ export default function Dashboard() {
                   <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-              <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
-              <Tooltip formatter={(val) => `$${val.toLocaleString()}`} contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#94a3b8" axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip format={v => `$${Number(v).toLocaleString()}`} />} />
               <Area type="monotone" dataKey="revenue" stroke="#22c55e" fill="url(#revGrad)" strokeWidth={2} name="Revenue" />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
 
         <ChartCard title="Library Statistics">
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={libraryStats} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" label={({ name, value }) => `${name}: ${value}`} labelLine={{ stroke: '#94a3b8' }}>
-                {libraryStats.map((entry, i) => <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-              </Pie>
-              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="relative">
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie data={libraryStats} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" startAngle={90} endAngle={-270}>
+                  {libraryStats.map((entry, i) => <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip content={ChartTooltip} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ transform: 'translateY(-14px)' }}>
+              <p className="text-2xl font-bold text-surface-900 dark:text-white">
+                {libraryStats.reduce((sum, s) => sum + (Number(s.value) || 0), 0)}
+              </p>
+              <p className="text-xs text-surface-400 mt-0.5">Total Books</p>
+            </div>
+          </div>
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700">
+          <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700 flex items-center gap-2">
+            <GraduationCap size={16} className="text-primary-500" />
             <h3 className="text-sm font-semibold text-surface-900 dark:text-white">Recent Students</h3>
           </div>
           <div className="divide-y divide-surface-100 dark:divide-surface-700">
@@ -152,7 +204,8 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700">
+          <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700 flex items-center gap-2">
+            <ClipboardList size={16} className="text-primary-500" />
             <h3 className="text-sm font-semibold text-surface-900 dark:text-white">Recent Enrollments</h3>
           </div>
           <div className="divide-y divide-surface-100 dark:divide-surface-700">
@@ -173,7 +226,8 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700">
+          <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700 flex items-center gap-2">
+            <UserRoundCheck size={16} className="text-success-500" />
             <h3 className="text-sm font-semibold text-surface-900 dark:text-white">Today&apos;s Attendance</h3>
           </div>
           <div className="divide-y divide-surface-100 dark:divide-surface-700">
@@ -191,7 +245,8 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700">
+          <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700 flex items-center gap-2">
+            <CalendarDays size={16} className="text-warning-500" />
             <h3 className="text-sm font-semibold text-surface-900 dark:text-white">Upcoming Exams</h3>
           </div>
           <div className="divide-y divide-surface-100 dark:divide-surface-700">
@@ -214,9 +269,10 @@ export default function Dashboard() {
       </div>
 
       <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden">
-        <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700">
-          <h3 className="text-sm font-semibold text-surface-900 dark:text-white">Recent Payments</h3>
-        </div>
+        <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-700 flex items-center gap-2">
+            <DollarSign size={16} className="text-success-500" />
+            <h3 className="text-sm font-semibold text-surface-900 dark:text-white">Recent Payments</h3>
+          </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead>
